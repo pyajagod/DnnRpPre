@@ -240,37 +240,25 @@ class DnnRpPre:
         self.BATCH_SIZE = 256
         self.SUBMIT = True
 
-    def dnn_model(self, hp, n_inputs = 0, t_outputs = 0):
-        activation = 'swish'
+    def dnn_model(self, hp, n_inputs=0, n_outputs=0):
+        activation = hp.Choice('activation', ['relu', 'swish', 'tanh', 'sigmoid'])
         reg1 = hp.Float("reg1", min_value=1e-8, max_value=1e-4, sampling="log")
         reg2 = hp.Float("reg2", min_value=1e-10, max_value=1e-5, sampling="log")
         
-        inputs = Input(shape=(n_inputs, ))
-        x0 = Dense(hp.Choice('units1', [64, 128, 256]), kernel_regularizer=tf.keras.regularizers.l2(reg1),
-                activation = activation,
-                )(inputs)
-        do1 = Dropout(hp.Choice('do1', [0.1]))(x0)
-        x1 = Dense(hp.Choice('units2', [128, 256, 512]), kernel_regularizer=tf.keras.regularizers.l2(reg1),
-                activation = activation,
-                )(do1)
-        do2 = Dropout(hp.Choice('do2', [0.1]))(x1)
-        x2 = Dense(hp.Choice('units3', [128, 256, 512]), kernel_regularizer=tf.keras.regularizers.l2(reg1),
-                activation = activation,
-                )(do2)
-        do3 = Dropout(hp.Choice('do3', [0.1]))(x2)
-        x3 = Dense(hp.Choice('units4', [128, 256, 512]), kernel_regularizer=tf.keras.regularizers.l2(reg1),
-                activation = activation,
-                )(do3)
-        x3 = Dropout(hp.Choice('do4', [0.1]))(x3)
+        inputs = Input(shape=(n_inputs,))
+        x = inputs
         
-        x = Concatenate()([x0, x1, x2, x3])
-        x = Dense(t_outputs, kernel_regularizer=tf.keras.regularizers.l2(reg2),
-                #activation=activation,
-                )(x)
+        for i in range(hp.Int("num_layers", min_value=2, max_value=5)):  # Adjust the range as needed
+            x = Dense(hp.Choice(f'units_{i}', [64, 128, 256, 512, 1024]), kernel_regularizer=tf.keras.regularizers.l2(reg1),
+                    activation=activation)(x)
+            x = Dropout(hp.Float(f'do_{i}', min_value=0.1, max_value=0.5, step=0.1))(x)
+
+        x = Dense(n_outputs, kernel_regularizer=tf.keras.regularizers.l2(reg2))(x)
         
         regressor = Model(inputs, x)
         
         return regressor
+
 
     def ifOrNotTune(self , TUNE = False):
         if TUNE:
